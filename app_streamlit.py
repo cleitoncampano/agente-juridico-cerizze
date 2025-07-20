@@ -1,133 +1,162 @@
-import os
+import json
 import datetime
-from dotenv import load_dotenv
+import uuid
+from typing import Dict, Any
 import streamlit as st
-from openai import OpenAI
 
-# === CONFIG ===
-load_dotenv()
-api_key = os.getenv("OPENAI_API_KEY")
-client = OpenAI(api_key=api_key)
+def calcular_custo(tokens_input: int, tokens_output: int, modelo: str) -> float:
+    """Calcula custo aproximado baseado nos preços da OpenAI"""
+    precos = {
+        "gpt-4o": {"input": 0.005/1000, "output": 0.015/1000},
+        "gpt-3.5-turbo": {"input": 0.0005/1000, "output": 0.0015/1000}
+    }
+    
+    if modelo in precos:
+        custo = (tokens_input * precos[modelo]["input"] + 
+                tokens_output * precos[modelo]["output"])
+        return round(custo, 6)
+    return 0.0
 
-# === CONFIGURAÇÃO VISUAL ===
-st.set_page_config(page_title="Agente Jurídico Cerizze", layout="wide")
-st.markdown("""
-    <style>
-        body {
-            background-color: #0D5D57;
-            color: #E5DCD4;
-            font-family: sans-serif;
-        }
-        .stApp {
-            background-color: #0D5D57;
-            color: #E5DCD4;
-        }
-        .stTextInput input {
-            background-color: #2E2E2E;
-            color: white;
-            border-radius: 30px;
-            padding: 0.8rem 1.5rem;
-            border: none;
-            width: 100%;
-            font-size: 1rem;
-        }
-        .stMarkdown {
-            font-size: 1.1rem;
-        }
-        .copy-box {
-            background-color: #1E1E1E;
-            padding: 1rem;
-            border-radius: 10px;
-            color: white;
-            font-family: monospace;
-            font-size: 0.9rem;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-    </style>
-""", unsafe_allow_html=True)
+def obter_usuario_atual() -> str:
+    """Obtém usuário atual do session state ou retorna admin"""
+    return st.session_state.get("usuario_logado", "admin@cerizze.com")
 
-# === SIDEBAR ===
-st.sidebar.title("⚙️ IA Cerizze")
-modelo = st.sidebar.selectbox("Modelo de IA:", ["gpt-4o", "gpt-3.5-turbo"])
-area = st.sidebar.selectbox("Área Jurídica:", [
-    "Societário", "Tributário", "Trabalhista", "Cível", "Empresarial", "Licitações", "Regulatório", "Ambiental"
-])
-st.sidebar.markdown("---")
-st.sidebar.info("💼 Cerizze - Advocacia Empresarial Full Service")
+def gerar_id_sessao() -> str:
+    """Gera ID único para sessão de chat"""
+    if "session_id" not in st.session_state:
+        st.session_state.session_id = str(uuid.uuid4())
+    return st.session_state.session_id
 
-# === TÍTULO CENTRAL ===
-st.markdown("<h2 style='text-align: center;'>🤖 Agente Jurídico Inteligente - Cerizze</h2>", unsafe_allow_html=True)
+def responder_com_logging(pergunta: str, area: str) -> Dict[str, Any]:
+    """Função principal com logging completo e tratamento de erros"""
+    try:
+        prompt = montar_prompt(pergunta, area)
+        inicio = datetime.datetime.now()
+        
+        # Chamada para OpenAI
+        resposta = client.chat.completions.create(
+            model=modelo,
+            messages=[
+                {"role": "system", "content": f"Você é um especialista em Direito {area} Brasileiro."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3,
+            max_tokens=1200
+        )
 
-# === INICIALIZA HISTÓRICO ===
-if "historico" not in st.session_state:
-    st.session_state.historico = []
+        fim = datetime.datetime.now()
+        tempo_resposta = (fim - inicio).total_seconds()
 
-# === PROMPT BUILDER ===
-def montar_prompt(pergunta_usuario, area_juridica):
-    return f"""
-Você é um agente de IA jurídico da banca Cerizze, especializado em Direito {area_juridica} Brasileiro. Atue com ética, excelência técnica, visão de negócios e foco prático.
+        # Extrai dados da resposta
+        conteudo = resposta.choices[0].message.content.strip()
+        tokens_input = resposta.usage.prompt_tokens
+        tokens_output = resposta.usage.completion_tokens
+        custo_estimado = calcular_custo(tokens_input, tokens_output, modelo)
 
-Estruture sua resposta nos tópicos:
-1. **Contexto**
-2. **Análise jurídica**
-3. **Recomendações práticas**
-4. **Referências normativas**
-5. **Limitações**
-
-Pergunta:
-\"\"\"{pergunta_usuario}\"\"\"
-"""
-
-# === EXECUTA CONSULTA ===
-def responder(pergunta, area):
-    prompt = montar_prompt(pergunta, area)
-    resposta = client.chat.completions.create(
-        model=modelo,
-        messages=[
-            {"role": "system", "content": f"Você é um especialista em Direito {area} Brasileiro."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.3,
-        max_tokens=1200
-    )
-    return resposta.choices[0].message.content.strip()
-
-# === INPUT ESTILO CHAT CENTRAL ===
-col1, col2, col3 = st.columns([1, 6, 1])
-with col2:
-    with st.form("form_pergunta", clear_on_submit=False):
-        pergunta = st.text_input("Sua pergunta", placeholder="Digite sua pergunta aqui...", key="input_pergunta")
-        enviado = st.form_submit_button("Enviar")
-
-# === PROCESSA ENVIO ===
-if enviado:
-    if pergunta.strip():
-        with st.spinner("Consultando agente..."):
-            resposta = responder(pergunta, area)
-        st.session_state.historico.append({
-            "pergunta": pergunta,
-            "resposta": resposta,
+        # Monta log completo
+        log_entry = {
+            "id": str(uuid.uuid4()),
+            "session_id": gerar_id_sessao(),
+            "user": obter_usuario_atual(),
             "area": area,
-            "data": datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
-        })
-        st.success("Resposta obtida com sucesso!")
-    else:
-        st.warning("Por favor, digite uma pergunta.")
+            "pergunta": pergunta,
+            "resposta": conteudo,
+            "modelo": modelo,
+            "tokens_input": tokens_input,
+            "tokens_output": tokens_output,
+            "tokens_total": tokens_input + tokens_output,
+            "custo_estimado": custo_estimado,
+            "tempo_resposta": tempo_resposta,
+            "timestamp": datetime.datetime.now().isoformat(),
+            "data": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "status": "sucesso"
+        }
 
-# === EXIBE ÚLTIMA RESPOSTA ===
-if st.session_state.historico:
-    ultima = st.session_state.historico[-1]
-    st.markdown("### 🧾 Resposta do Agente")
-    st.markdown(f"<div class='copy-box'>{ultima['resposta']}</div>", unsafe_allow_html=True)
+        # Salva log
+        salvar_log(log_entry)
+        
+        # Atualiza métricas da sessão
+        atualizar_metricas_sessao(log_entry)
 
-    st.download_button("📥 Baixar como .txt", data=ultima["resposta"], file_name="resposta_agente.txt")
+        return {
+            "resposta": conteudo,
+            "tokens_input": tokens_input,
+            "tokens_output": tokens_output,
+            "custo": custo_estimado,
+            "tempo": tempo_resposta,
+            "sucesso": True
+        }
 
-# === HISTÓRICO DE CONSULTAS ===
-if st.session_state.historico:
-    st.markdown("### 📚 Histórico de Consultas")
-    for item in reversed(st.session_state.historico):
-        with st.expander(f"📅 {item['data']} | ⚖️ {item['area']}"):
-            st.markdown(f"**❓ Pergunta:** {item['pergunta']}")
-            st.markdown("---")
-            st.markdown(f"<div class='copy-box'>{item['resposta']}</div>", unsafe_allow_html=True)
+    except Exception as e:
+        # Log de erro
+        log_erro = {
+            "id": str(uuid.uuid4()),
+            "session_id": gerar_id_sessao(),
+            "user": obter_usuario_atual(),
+            "area": area,
+            "pergunta": pergunta,
+            "modelo": modelo,
+            "erro": str(e),
+            "timestamp": datetime.datetime.now().isoformat(),
+            "data": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "status": "erro"
+        }
+        
+        salvar_log(log_erro)
+        
+        return {
+            "resposta": f"❌ Erro ao processar consulta: {str(e)}",
+            "sucesso": False,
+            "erro": str(e)
+        }
+
+def salvar_log(log_entry: Dict[str, Any]):
+    """Salva log no arquivo JSONL"""
+    try:
+        os.makedirs("data/logs", exist_ok=True)
+        arquivo_log = f"data/logs/interacoes_{datetime.date.today().strftime('%Y%m')}.jsonl"
+        
+        with open(arquivo_log, "a", encoding="utf-8") as f:
+            f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
+    except Exception as e:
+        st.error(f"Erro ao salvar log: {e}")
+
+def atualizar_metricas_sessao(log_entry: Dict[str, Any]):
+    """Atualiza métricas da sessão atual"""
+    if "metricas_sessao" not in st.session_state:
+        st.session_state.metricas_sessao = {
+            "consultas_realizadas": 0,
+            "tokens_utilizados": 0,
+            "custo_acumulado": 0.0,
+            "areas_consultadas": set(),
+            "tempo_total": 0.0
+        }
+    
+    metricas = st.session_state.metricas_sessao
+    metricas["consultas_realizadas"] += 1
+    metricas["tokens_utilizados"] += log_entry.get("tokens_total", 0)
+    metricas["custo_acumulado"] += log_entry.get("custo_estimado", 0)
+    metricas["areas_consultadas"].add(log_entry.get("area", ""))
+    metricas["tempo_total"] += log_entry.get("tempo_resposta", 0)
+
+def exibir_metricas_sidebar():
+    """Exibe métricas na sidebar"""
+    if "metricas_sessao" in st.session_state:
+        metricas = st.session_state.metricas_sessao
+        
+        st.sidebar.markdown("### 📊 Métricas da Sessão")
+        st.sidebar.metric("Consultas", metricas["consultas_realizadas"])
+        st.sidebar.metric("Tokens", f"{metricas['tokens_utilizados']:,}")
+        st.sidebar.metric("Custo", f"${metricas['custo_acumulado']:.4f}")
+        st.sidebar.metric("Tempo Médio", f"{metricas['tempo_total']/max(1, metricas['consultas_realizadas']):.1f}s")
+        
+        if metricas["areas_consultadas"]:
+            st.sidebar.write("**Áreas consultadas:**")
+            for area in metricas["areas_consultadas"]:
+                st.sidebar.write(f"• {area}")
+
+# === FUNÇÃO ATUALIZADA PARA USO NO STREAMLIT ===
+def responder(pergunta, area):
+    """Wrapper para manter compatibilidade com código existente"""
+    resultado = responder_com_logging(pergunta, area)
+    return resultado["resposta"]
