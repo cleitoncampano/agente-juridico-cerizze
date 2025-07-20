@@ -1,0 +1,11 @@
+echo '[theme]
+primaryColor="#43A6A0"
+backgroundColor="#0D5D57"
+secondaryBackgroundColor="#1E1E1E"
+textColor="#E5DCD4"
+
+[server]
+headless = true
+port = 8501
+enableCORS = false
+' > .streamlit/config.toml
