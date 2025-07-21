@@ -26,7 +26,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # === SIDEBAR ===
-st.sidebar.image("https://cerizze.com/wp-content/uploads/2022/04/logo_cerizze-branco.png", use_column_width=True)
+st.sidebar.image("https://cerizze.com/wp-content/uploads/2022/04/logo_cerizze-branco.png", use_container_width=True)
 st.sidebar.title("Agente Jurídico Cerizze")
 st.sidebar.markdown("---")
 
