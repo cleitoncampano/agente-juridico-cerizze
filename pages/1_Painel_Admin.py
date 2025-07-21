@@ -94,41 +94,35 @@ if df.empty:
 
 # === FILTROS ===
 # Filtro por data
-if 'data_parsed' in df.columns:
+# Filtro por data
+if 'data_parsed' in df.columns and not df['data_parsed'].isna().all():
     data_min = df['data_parsed'].min().date()
     data_max = df['data_parsed'].max().date()
 
-    if data_min and data_max and data_min <= data_max:
+    # Garante que data_min <= data_max e fallback de 7 dias se for igual
+    if data_min >= data_max:
+        data_min = data_max - timedelta(days=7)
+
+    try:
         data_inicio, data_fim = st.sidebar.date_input(
             "Período:",
-            value=(data_max - timedelta(days=30), data_max),
+            value=(data_min, data_max),
             min_value=data_min,
             max_value=data_max
         )
-    else:
-        st.warning("⚠️ Intervalo de datas inválido nos dados.")
-        st.stop()
+    except Exception as e:
+        st.warning(f"⚠️ Erro ao definir período: {e}")
+        data_inicio, data_fim = data_min, data_max
 
-else:
-    st.warning("⚠️ Intervalo de datas inválido nos dados.")
-    st.stop()
-    
+    # Aplica filtro de data
     df = df[
         (df['data_parsed'].dt.date >= data_inicio) & 
         (df['data_parsed'].dt.date <= data_fim)
     ]
+else:
+    st.warning("⚠️ Coluna 'data_parsed' está vazia ou ausente.")
+    st.stop()
 
-if 'user' in df.columns:
-    usuarios = st.sidebar.multiselect("👤 Usuários:", sorted(df["user"].unique()), default=df["user"].unique())
-    df = df[df["user"].isin(usuarios)]
-
-if 'area' in df.columns:
-    areas = st.sidebar.multiselect("⚖️ Áreas Jurídicas:", sorted(df["area"].unique()), default=df["area"].unique())
-    df = df[df["area"].isin(areas)]
-
-if 'modelo' in df.columns:
-    modelos = st.sidebar.multiselect("🧠 Modelos:", sorted(df["modelo"].unique()), default=df["modelo"].unique())
-    df = df[df["modelo"].isin(modelos)]
 
 # === CÁLCULO DE CUSTO ===
 def calcular_custo(row):
