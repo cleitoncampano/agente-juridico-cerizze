@@ -93,22 +93,21 @@ if df.empty:
     st.stop()
 
 # === FILTROS ===
-st.sidebar.header("🔍 Filtros")
-
+# Filtro por data
 if 'data_parsed' in df.columns:
     data_min = df['data_parsed'].min().date()
     data_max = df['data_parsed'].max().date()
-    
-if data_min and data_max and data_min <= data_max:
-    data_inicio, data_fim = st.sidebar.date_input(
-        "Período:",
-        value=(data_max - timedelta(days=30), data_max),
-        min_value=data_min,
-        max_value=data_max
-    )
-else:
-    st.warning("⚠️ Intervalo de datas inválido nos dados.")
-    st.stop()
+
+    if data_min and data_max and data_min <= data_max:
+        data_inicio, data_fim = st.sidebar.date_input(
+            "Período:",
+            value=(data_max - timedelta(days=30), data_max),
+            min_value=data_min,
+            max_value=data_max
+        )
+    else:
+        st.warning("⚠️ Intervalo de datas inválido nos dados.")
+        st.stop()
 
 else:
     st.warning("⚠️ Intervalo de datas inválido nos dados.")
