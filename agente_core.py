@@ -80,10 +80,9 @@ def responder(pergunta: str, area: str, modelo: str = modelo_default) -> str:
         inicio = datetime.datetime.now()
 
         from openai import OpenAI
-        
-        client = OpenAI()
 
-resposta = client.chat.completions.create(
+        client = OpenAI()
+        resposta = client.chat.completions.create(
     model=modelo,
     messages=[
         {"role": "system", "content": f"Você é um especialista em Direito {area} brasileiro."},
