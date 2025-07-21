@@ -163,10 +163,21 @@ with col1:
     st.plotly_chart(fig, use_container_width=True)
 
 with col2:
-    st.markdown("### ⚖️ Por Área Jurídica")
+    st.markdown("### ⚖️ Distribuição por Área")
     if 'area' in df.columns:
-        df_area = df['area'].value_counts().reset_index()
-        fig_area = px.pie(df_area, names='index', values='area', title="Distribuição por área")
+        area_dist = df['area'].value_counts().reset_index()
+        area_dist.columns = ['Área', 'Quantidade']
+        
+        fig_area = px.pie(
+            area_dist,
+            names='Área',
+            values='Quantidade',
+            title="Consultas por Área Jurídica",
+            color_discrete_sequence=px.colors.qualitative.Set3
+        )
+        fig_area.update_layout(
+            font_color='white'
+        )
         st.plotly_chart(fig_area, use_container_width=True)
 
 # === RANKINGS ===
