@@ -79,15 +79,19 @@ def responder(pergunta: str, area: str, modelo: str = modelo_default) -> str:
         prompt = f"Você é um advogado especialista em Direito {area}. Responda à seguinte pergunta jurídica com clareza e objetividade:\n\n{pergunta}"
         inicio = datetime.datetime.now()
 
-        resposta = openai.ChatCompletion.create(
-            model=modelo,
-            messages=[
-                {"role": "system", "content": f"Você é um especialista em Direito {area} brasileiro."},
-                {"role": "user", "content": pergunta}
-            ],
-            temperature=0.3,
-            max_tokens=1200
-        )
+        from openai import OpenAI
+        
+        client = OpenAI()
+
+resposta = client.chat.completions.create(
+    model=modelo,
+    messages=[
+        {"role": "system", "content": f"Você é um especialista em Direito {area} brasileiro."},
+        {"role": "user", "content": prompt}
+    ],
+    temperature=0.3,
+    max_tokens=1200
+)
 
         fim = datetime.datetime.now()
         conteudo = resposta.choices[0].message.content.strip()
