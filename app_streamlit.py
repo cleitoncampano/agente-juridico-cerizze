@@ -2,6 +2,7 @@ import json
 import datetime
 import uuid
 from typing import Dict, Any
+import os
 import streamlit as st
 
 def calcular_custo(tokens_input: int, tokens_output: int, modelo: str) -> float:
@@ -18,8 +19,8 @@ def calcular_custo(tokens_input: int, tokens_output: int, modelo: str) -> float:
     return 0.0
 
 def obter_usuario_atual() -> str:
-    """Obtém usuário atual do session state ou retorna admin"""
-    return st.session_state.get("usuario_logado", "admin@cerizze.com")
+    """Retorna e-mail fixo para testes"""
+    return "admin@cerizze.com"
 
 def gerar_id_sessao() -> str:
     """Gera ID único para sessão de chat"""
@@ -72,10 +73,7 @@ def responder_com_logging(pergunta: str, area: str) -> Dict[str, Any]:
             "status": "sucesso"
         }
 
-        # Salva log
         salvar_log(log_entry)
-        
-        # Atualiza métricas da sessão
         atualizar_metricas_sessao(log_entry)
 
         return {
@@ -155,7 +153,6 @@ def exibir_metricas_sidebar():
             for area in metricas["areas_consultadas"]:
                 st.sidebar.write(f"• {area}")
 
-# === FUNÇÃO ATUALIZADA PARA USO NO STREAMLIT ===
 def responder(pergunta, area):
     """Wrapper para manter compatibilidade com código existente"""
     resultado = responder_com_logging(pergunta, area)
